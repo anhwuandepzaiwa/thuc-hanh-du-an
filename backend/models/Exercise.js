@@ -12,21 +12,30 @@ const exerciseSchema = new Schema({
         type: String,
         trim: true
     },
+    subject: {  // Thêm môn học
+        type: String,
+        required: true
+    },
+    difficulty: {  // Thêm mức độ khó
+        type: String,
+        enum: ['easy', 'medium', 'hard'],
+        required: true
+    },
     questionBank: {
         type: Schema.Types.ObjectId,
         ref: 'QuestionBank',
         required: true
     },
-    questions: [{
+    questions: [{  // Thêm câu hỏi vào bài tập
         type: Schema.Types.ObjectId,
         ref: 'Question',
         required: true
     }],
-    duration: {
+    duration: {  // Thêm thời gian hoàn thành
         type: Number,
         required: true
     },
-    totalMarks: {
+    totalMarks: {  // Tổng điểm bài tập
         type: Number,
         required: true
     },

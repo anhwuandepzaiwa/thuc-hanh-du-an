@@ -4,7 +4,7 @@ const exerciseController = require('../controllers/exerciseController');
 const authMiddleware = require('../middleware/authMiddleware');
 
 // Tạo bài tập mới (chỉ dành cho teacher, manager, admin hoặc superadmin)
-router.post('/', authMiddleware.verifyRole(['teacher', 'manager', 'admin', 'superadmin']), exerciseController.createExercise);
+router.post('/create', authMiddleware.verifyRole(['teacher', 'manager', 'admin', 'superadmin']), exerciseController.createExercise);
 
 // Lấy danh sách tất cả bài tập (public)
 router.get('/', exerciseController.getAllExercises);
@@ -18,8 +18,8 @@ router.put('/:id', authMiddleware.verifyRole(['teacher', 'manager', 'admin', 'su
 // Xóa bài tập theo ID (chỉ dành cho admin hoặc superadmin)
 router.delete('/:id', authMiddleware.verifyRole(['admin', 'superadmin']), exerciseController.deleteExercise);
 
-// Thêm câu hỏi vào bài tập (chỉ dành cho teacher, manager, admin hoặc superadmin)
-router.post('/:id/questions', authMiddleware.verifyRole(['teacher', 'manager', 'admin', 'superadmin']), exerciseController.addQuestionsToExercise);
+// Học sinh thực hiện bài tập
+router.post('/submit-answers', exerciseController.submitAnswers);
 
 // Lấy danh sách câu hỏi trong bài tập
 router.get('/:id/questions', exerciseController.getQuestionsFromExercise);
