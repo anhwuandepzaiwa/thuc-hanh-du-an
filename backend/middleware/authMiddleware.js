@@ -1,37 +1,32 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 
 // Middleware xác thực người dùng thông thường
 exports.verifyToken = (req, res, next) => {
     try {
-        const token = req.cookies?.token;
-
-        if (!token) {
-            return res.status(401).json({
-                message: "Please Login...!",
-                error: true,
-                success: false,
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token)
+            return res.status(403).json({
+                message: "Token chưa được cung cấp",
+                success: false
             });
-        }
 
         jwt.verify(token, process.env.TOKEN_SECRET_KEY, (err, decoded) => {
             if (err) {
                 return res.status(403).json({
-                    message: "Unauthorized access",
-                    error: true,
-                    success: false,
+                    message: "Truy cập bị từ chối",
+                    success: false
                 });
             }
 
             req.userId = decoded?._id;
             req.userRole = decoded?.role;
-            
-            next(); // Move to the next middleware or route
+
+            next(); 
         });
     } catch (err) {
         res.status(400).json({
-            message: err.message || "An error occurred",
-            error: true,
+            message: err.message || "Lỗi không xác định",
             success: false,
         });
     }
@@ -39,11 +34,13 @@ exports.verifyToken = (req, res, next) => {
 
 // Middleware xác thực admin
 exports.verifyAdmin = (req, res, next) => {
-    if (req.userRole === 'admin' || req.userRole === 'superadmin') {
-        next(); // Nếu là admin hoặc superadmin, cho phép tiếp tục
-    } else {
-        res.status(403).send('Permission Denied: chi admin hoặc superadmin mới được phép truy cập');
+    if (req.userRole !== 'ADMIN') {
+        return res.status(403).json({
+            message: "Truy cập bị từ chối, chỉ có quyền ADMIN mới được phép",
+            success: false,
+        });
     }
+    next(); 
 };
 
 exports.verifyRole = (roles) => {

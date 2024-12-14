@@ -17,10 +17,10 @@ router.put('/:id', authMiddleware.verifyToken, questionController.updateQuestion
 router.delete('/:id',  questionController.deleteQuestion);
 
 // Import câu hỏi vào ngân hàng (chỉ cho admin hoặc superadmin)
-router.post('/import', questionController.importQuestions);
+router.post('/import/:id', questionController.importQuestions);
 
 // Export câu hỏi từ ngân hàng (chỉ cho admin hoặc superadmin)
-router.get('/export',  questionController.exportQuestions);
+router.get('/export/:type/:id',  questionController.exportQuestions);
 
 // Lấy chi tiết câu hỏi theo ID (public)
 router.get('/:id', questionController.getQuestionById);

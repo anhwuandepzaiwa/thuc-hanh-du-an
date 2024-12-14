@@ -1,21 +1,25 @@
 const User = require('../models/User');
+const Profile = require('../models/Profile');
 
-// Get Profile (Lấy thông tin người dùng hiện tại)
 exports.getProfile = async (req, res) => {
     try {
-        const user = await User.findById(req.userId); // `req.user.id` được lấy từ middleware xác thực
+        const user = await User.findById(req.userId).populate('profile'); // Populate the profile field
+
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
         }
-        res.status(200).json(user);
+
+        res.status(200).json(user); // Return the user with populated profile
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: 'Failed to retrieve user profile', error: error.message });
     }
 };
 
+
 // Update Profile (Cập nhật thông tin người dùng hiện tại)
 exports.updateProfile = async (req, res) => {
-    const { username, email, password } = req.body;
+    const { fullName, dateOfBirth, gender, phoneNumber, address, bio } = req.body;
 
     try {
         const user = await User.findById(req.userId); // Lấy người dùng từ `req.user.id`
@@ -24,30 +28,35 @@ exports.updateProfile = async (req, res) => {
             return res.status(404).json({ message: 'User not found.' });
         }
 
-        // Cập nhật các trường nếu có
-        if (username) user.username = username;
-        if (email) user.email = email;
-        if (password) user.password = password;
+        // Cập nhật thông tin Profile (Không bao gồm username, email và password)
+        let profile = await Profile.findOne({ user: user._id });
 
-        await user.save();
-        res.status(200).json({ message: 'Profile updated successfully!', user });
+        if (!profile) {
+            // Nếu chưa có profile, tạo mới
+            profile = new Profile({
+                user: user._id,
+                fullName,
+                dateOfBirth,
+                gender,
+                phoneNumber,
+                address,
+                bio
+            });
+        } else {
+            if (fullName) profile.fullName = fullName;
+            if (dateOfBirth) profile.dateOfBirth = dateOfBirth;
+            if (gender) profile.gender = gender;
+            if (phoneNumber) profile.phoneNumber = phoneNumber;
+            if (address) profile.address = address;
+            if (bio) profile.bio = bio;
+        }
+
+        // Lưu thông tin profile
+        await profile.save();
+
+        res.status(200).json({ message: 'Profile updated successfully!', profile });
     } catch (error) {
         res.status(500).json({ message: 'Failed to update profile', error: error.message });
-    }
-};
-
-// Get User by ID (Lấy thông tin người dùng theo ID)
-exports.getUserById = async (req, res) => {
-    const { id } = req.params;
-
-    try {
-        const user = await User.findById(id);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
-        }
-        res.status(200).json(user);
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to get user by ID', error: error.message });
     }
 };
 

@@ -1,17 +1,18 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-// Định nghĩa Schema cho QuestionType
 const questionTypeSchema = new Schema({
     name: {
         type: String,
-        required: true,
+        required: [true, 'Tên loại câu hỏi là bắt buộc'],
         unique: true,
-        trim: true
+        trim: true,
+        minlength: [3, 'Tên loại câu hỏi phải có ít nhất 3 ký tự'],
     },
     description: {
         type: String,
-        trim: true
+        trim: true,
+        maxlength: [500, 'Mô tả không được quá 500 ký tự'],
     },
     createdAt: {
         type: Date,

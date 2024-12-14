@@ -6,7 +6,7 @@ const {
     getQuestionBanks,
     updateQuestionBank,
     deleteQuestionBank,
-    addQuestionToBank
+    addQuestionsToBank
 } = require('../controllers/questionBankController');
 
 // Route cho quản lý ngân hàng câu hỏi
@@ -14,6 +14,6 @@ router.post('/',authMiddleware.verifyToken,createQuestionBank);           // T�
 router.get('/', getQuestionBanks);              // Lấy danh sách ngân hàng câu hỏi
 router.put('/:id', updateQuestionBank);         // Sửa ngân hàng câu hỏi
 router.delete('/:id', deleteQuestionBank);      // Xóa ngân hàng câu hỏi
-router.post('/add-question', addQuestionToBank); // Thêm câu hỏi vào ngân hàng
+router.post('/add-question', addQuestionsToBank); // Thêm câu hỏi vào ngân hàng
 
 module.exports = router;

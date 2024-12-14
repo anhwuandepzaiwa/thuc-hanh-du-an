@@ -6,7 +6,15 @@ const roleSchema = new Schema({
         type: String,
         required: true,
         unique: true,
-        enum: ['superadmin', 'admin', 'manager', 'leader', 'teacher', 'user'],
+        trim: true,
+        lowercase: true,
+        validate: {
+            validator: function (value) {
+                const allowedRoles = ['superadmin', 'admin', 'manager', 'leader', 'teacher', 'user'];
+                return allowedRoles.includes(value);
+            },
+            message: 'Tên vai trò không hợp lệ.',
+        },
     },
     permissions: [
         { type: mongoose.Schema.Types.ObjectId, ref: 'Permission' },

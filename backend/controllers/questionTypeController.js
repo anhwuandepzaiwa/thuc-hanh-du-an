@@ -4,17 +4,23 @@ const QuestionType = require('../models/QuestionType');
 const createQuestionType = async (req, res) => {
     try {
         const { name, description } = req.body;
+        if (!name) {
+            return res.status(400).json({ message: 'Tên loại câu hỏi không được để trống.' });
+        }
+
         const existingType = await QuestionType.findOne({ name });
         if (existingType) {
             return res.status(400).json({ message: 'Loại câu hỏi đã tồn tại.' });
         }
 
-        const newType = await QuestionType.create({ name, description });
+        const newType = new QuestionType({ name, description });
+        await newType.save();
         res.status(201).json(newType);
     } catch (error) {
         res.status(500).json({ message: 'Đã xảy ra lỗi.', error: error.message });
     }
 };
+
 
 // Lấy danh sách loại câu hỏi
 const getQuestionTypes = async (req, res) => {
@@ -26,11 +32,15 @@ const getQuestionTypes = async (req, res) => {
     }
 };
 
-// Sửa loại câu hỏi
+// Cập nhật loại câu hỏi
 const updateQuestionType = async (req, res) => {
     try {
         const { id } = req.params;
         const { name, description } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ message: 'Tên loại câu hỏi không được để trống.' });
+        }
 
         const updatedType = await QuestionType.findByIdAndUpdate(
             id,

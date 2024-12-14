@@ -1,5 +1,5 @@
 const QuestionBank = require('../models/QuestionBank');
-const Question = require('../models/Question'); // Nếu bạn có model câu hỏi
+const Question = require('../models/Question'); 
 
 // Tạo ngân hàng câu hỏi
 const createQuestionBank = async (req, res) => {
@@ -71,22 +71,27 @@ const deleteQuestionBank = async (req, res) => {
     }
 };
 
-// Thêm câu hỏi vào ngân hàng
-const addQuestionToBank = async (req, res) => {
+const addQuestionsToBank = async (req, res) => {
     try {
-        const { bankId, questionId } = req.body;
+        const { bankId, questionIds } = req.body;  // Đảm bảo nhận vào mảng questionIds
 
+        // Kiểm tra xem ngân hàng câu hỏi có tồn tại không
         const bank = await QuestionBank.findById(bankId);
         if (!bank) {
             return res.status(404).json({ message: 'Không tìm thấy ngân hàng câu hỏi.' });
         }
 
-        if (!bank.questions.includes(questionId)) {
-            bank.questions.push(questionId);
-            await bank.save();
+        // Thêm từng câu hỏi vào ngân hàng câu hỏi nếu chưa tồn tại
+        for (let questionId of questionIds) {
+            if (!bank.questions.includes(questionId)) {
+                bank.questions.push(questionId);
+            }
         }
 
-        res.status(200).json(bank);
+        // Lưu lại ngân hàng câu hỏi đã được cập nhật
+        await bank.save();
+
+        res.status(200).json(bank);  // Trả về ngân hàng câu hỏi đã được cập nhật
     } catch (error) {
         res.status(500).json({ message: 'Đã xảy ra lỗi.', error: error.message });
     }
@@ -97,5 +102,5 @@ module.exports = {
     getQuestionBanks,
     updateQuestionBank,
     deleteQuestionBank,
-    addQuestionToBank,
+    addQuestionsToBank,
 };
