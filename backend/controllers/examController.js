@@ -1,4 +1,4 @@
-const Exam = require('../models/Examination');
+const Examination = require('../models/Examination');
 const QuestionBank = require('../models/QuestionBank');
 const Registration = require('../models/Registration');
 const Answer = require('../models/Answer');
@@ -127,7 +127,7 @@ exports.getAllExams = async (req, res) => {
         }
 
         // Tìm tất cả kỳ thi thỏa mãn các điều kiện đã lọc
-        const exams = await Exam.find(filter).populate('questionBank', 'name').exec();
+        const exams = await Examination.find(filter).populate('questionBank', 'name').exec();
 
         // Nếu không có kỳ thi nào thỏa mãn, trả về thông báo
         if (exams.length === 0) {

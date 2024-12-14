@@ -4,7 +4,7 @@ const examController = require('../controllers/examController');
 const authMiddleware = require('../middleware/authMiddleware');
 
 // Tạo kỳ thi mới (chỉ dành cho admin, superadmin, manager hoặc teacher)
-router.post('/create', examController.createExam);
+router.post('/create', authMiddleware.verifyToken ,examController.createExam);
 
 // Lấy danh sách tất cả các kỳ thi (public)
 router.get('/', examController.getAllExams);

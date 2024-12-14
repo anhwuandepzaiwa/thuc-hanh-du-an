@@ -18,12 +18,18 @@ const examinationSchema = new Schema({
         required: true
     },
     questions: [{
-        type: Schema.Types.ObjectId,
-        ref: 'Question',
-        required: true
+        questionId: {
+            type: Schema.Types.ObjectId,
+            ref: 'Question',
+            required: true
+        },
+        marks: {
+            type: Number,
+            required: true
+        }
     }],
     duration: {
-        type: Number,  // Thời gian kỳ thi tính bằng phút
+        type: Number,  // Duration in minutes
         required: true
     },
     totalMarks: {
@@ -56,6 +62,7 @@ const examinationSchema = new Schema({
         type: Date,
         required: true
     }
-}, { timestamps: true });  // Tự động tạo createdAt và updatedAt
+}, { timestamps: true });
 
 module.exports = mongoose.model('Examination', examinationSchema);
+
