@@ -13,27 +13,30 @@ router.get('/', examController.getAllExams);
 router.get('/:id', examController.getExamById);
 
 // Cập nhật thông tin kỳ thi (chỉ dành cho admin, superadmin, hoặc manager)
-router.put('/:id', examController.updateExam);
+router.put('/:examId', examController.updateExam);
 
 // Xóa kỳ thi (chỉ dành cho admin hoặc superadmin)
 router.delete('/:id', examController.deleteExam);
 
+// Thêm câu hỏi vào kỳ thi
+router.post('/add-questions', examController.addQuestionsToExam);
+
 // Đăng ký tham gia kỳ thi 
-router.post('/:examId/register', examController.registerForExam);
+router.post('/:examId/register', authMiddleware.verifyToken,examController.registerForExam);
 
 // Bắt đầu kỳ thi 
-router.post('/:examId/start', examController.startExam);
-
-// Kết thúc kỳ thi
-router.post('/:examId/end', examController.endExam);
+router.post('/:examId/start', authMiddleware.verifyToken, examController.startExam);
 
 // Nộp bài thi
-router.post('/:examId/submit', examController.submitExam);
+router.post('/:examId/submit', authMiddleware.verifyToken, examController.submitExam);
 
 // Lấy kết quả thi
-router.get('/examId/results', examController.getExamResults);
+router.get('/:examId/results', authMiddleware.verifyToken, examController.getExamResults);
 
 // Thống kê kỳ thi
 router.get('/:examId/statistics', examController.getExamStatistics);
+
+// Lấy câu hỏi từ kỳ thi 
+router.get('/:examId/questions', authMiddleware.verifyToken, examController.getQuestionsFromExam);
 
 module.exports = router;

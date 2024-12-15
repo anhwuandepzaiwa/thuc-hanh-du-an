@@ -1,14 +1,12 @@
 const Exercise = require('../models/Exercise');
-const Question = require('../models/Question');
-const Answer = require('../models/Answer');
-
+const Submission = require('../models/Submission');
 // Create Exercise (Tạo bài tập mới)
 exports.createExercise = async (req, res) => {
-    const { title, description, subject, difficulty, dueDate, questions, duration, totalMarks } = req.body;
+    const { title, description, dueDate, fileTypeAllowed } = req.body;
 
     // Kiểm tra các trường bắt buộc
-    if (!title || !subject || !difficulty || !dueDate || !questions || questions.length === 0 || !duration || !totalMarks) {
-        return res.status(400).json({ message: 'Title, subject, difficulty, due date, questions, duration, and total marks are required.' });
+    if (!title || !dueDate || !fileTypeAllowed || fileTypeAllowed.length === 0) {
+        return res.status(400).json({ message: 'Title, due date, and file type allowed are required.' });
     }
 
     try {
@@ -16,13 +14,9 @@ exports.createExercise = async (req, res) => {
         const newExercise = new Exercise({
             title,
             description,
-            subject,
-            difficulty,
-            questions,
-            duration,
-            totalMarks,
-            createdBy: req.user._id,  // Giả sử user đã đăng nhập và có _id
-            status: 'not_started', // Bài tập chưa bắt đầu
+            dueDate,
+            fileTypeAllowed,
+            createdBy: req.userId,  // Giả sử user đã đăng nhập và có _id
             visibility: 'private'  // Mặc định là riêng tư
         });
 
@@ -36,26 +30,28 @@ exports.createExercise = async (req, res) => {
     }
 };
 
-
 // Get All Exercises (Lấy danh sách tất cả bài tập)
 exports.getAllExercises = async (req, res) => {
     // Lấy các bộ lọc từ query params
-    const { subject, difficulty, status } = req.query;
+    const { visibility, dueDate, createdBy } = req.query;
 
     try {
         // Xây dựng các điều kiện tìm kiếm động
         const filter = {};
 
-        if (subject) {
-            filter.subject = subject;  // Bộ lọc theo môn học
+        // Bộ lọc theo tính năng hiển thị (visibility)
+        if (visibility) {
+            filter.visibility = visibility;
         }
 
-        if (difficulty) {
-            filter.difficulty = difficulty;  // Bộ lọc theo mức độ khó
+        // Bộ lọc theo ngày hết hạn (dueDate) - có thể so sánh với ngày hiện tại
+        if (dueDate) {
+            filter.dueDate = { $lte: new Date(dueDate) }; // Tìm bài tập có ngày hết hạn nhỏ hơn hoặc bằng dueDate
         }
 
-        if (status) {
-            filter.status = status;  // Bộ lọc theo trạng thái bài tập
+        // Bộ lọc theo người tạo bài tập (createdBy)
+        if (createdBy) {
+            filter.createdBy = createdBy;  // Tìm bài tập theo người tạo
         }
 
         // Tìm bài tập theo bộ lọc
@@ -98,11 +94,11 @@ exports.getExerciseById = async (req, res) => {
 // Update Exercise (Cập nhật bài tập)
 exports.updateExercise = async (req, res) => {
     const { id } = req.params;
-    const { title, description, dueDate, status, questions, difficulty, tags } = req.body;
+    const { title, description, dueDate, fileTypeAllowed, visibility } = req.body;
 
     // Kiểm tra dữ liệu bắt buộc
-    if (!title || !dueDate) {
-        return res.status(400).json({ message: 'Title and due date are required.' });
+    if (!title || !dueDate || !fileTypeAllowed) {
+        return res.status(400).json({ message: 'Title, due date, and file types allowed are required.' });
     }
 
     try {
@@ -111,10 +107,8 @@ exports.updateExercise = async (req, res) => {
             title,
             description,
             dueDate,
-            status,            // Trạng thái bài tập (ví dụ: "not_started", "in_progress", "completed")
-            questions,         // Cập nhật câu hỏi
-            difficulty,        // Mức độ khó bài tập
-            tags               // Các thẻ liên quan
+            fileTypeAllowed,    // Các loại tệp được phép nộp
+            visibility          // Trạng thái bài tập: public hoặc private
         };
 
         // Xóa các trường có giá trị undefined hoặc null
@@ -160,72 +154,6 @@ exports.deleteExercise = async (req, res) => {
     }
 };
 
-// Học sinh thực hiện bài tập
-exports.submitAnswers = async (req, res) => {
-    const { examId, answers } = req.body; // `answers` là danh sách câu trả lời của học sinh
-    const userId = req.user.id; // ID của học sinh (lấy từ session hoặc token)
-
-    if (!examId || !answers || !Array.isArray(answers)) {
-        return res.status(400).json({ message: 'Exam ID and answers are required.' });
-    }
-
-    try {
-        const results = [];
-
-        for (const ans of answers) {
-            const { questionId, answer } = ans;
-
-            // Tìm câu hỏi và kiểm tra đáp án đúng
-            const question = await Question.findById(questionId);
-            if (!question) {
-                results.push({ questionId, success: false, message: 'Question not found.' });
-                continue;
-            }
-
-            const isCorrect = question.correctAnswer === answer;
-
-            // Lưu câu trả lời vào bảng Answer
-            const newAnswer = new Answer({
-                userId,
-                examId,
-                questionId,
-                answer,
-                isCorrect,
-            });
-            await newAnswer.save();
-
-            results.push({ questionId, success: true, isCorrect });
-        }
-
-        res.status(200).json({
-            message: 'Answers submitted successfully!',
-            results,
-        });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to submit answers', error: error.message });
-    }
-};
-
-// Add Questions to Exercise (Thêm câu hỏi vào bài tập)
-exports.addQuestionsToExercise = async (req, res) => {
-    const { id } = req.params;
-    const { questions } = req.body; // Giả sử questions là một mảng ID câu hỏi
-
-    try {
-        const exercise = await Exercise.findById(id);
-        if (!exercise) {
-            return res.status(404).json({ message: 'Exercise not found.' });
-        }
-
-        exercise.questions.push(...questions); // Thêm câu hỏi vào bài tập
-        await exercise.save();
-
-        res.status(200).json({ message: 'Questions added to exercise successfully!', exercise });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to add questions', error: error.message });
-    }
-};
-
 // Get Questions from Exercise (Lấy câu hỏi từ bài tập)
 exports.getQuestionsFromExercise = async (req, res) => {
     const { id } = req.params;
@@ -244,33 +172,131 @@ exports.getQuestionsFromExercise = async (req, res) => {
 //Submit Exercise (Nộp bài tập)
 exports.submitExercise = async (req, res) => {
     const { id } = req.params;
-    const { userId, answers } = req.body; // Giả sử bạn gửi một mảng câu trả lời
+    const file = req.file; // Tệp bài nộp từ request
+
+    // Kiểm tra xem tệp đã được gửi chưa
+    if (!file) {
+        return res.status(400).json({ message: 'No file uploaded.' });
+    }
 
     try {
+        // Tìm bài tập theo ID
         const exercise = await Exercise.findById(id);
+        
         if (!exercise) {
             return res.status(404).json({ message: 'Exercise not found.' });
         }
 
-        // Xử lý nộp bài tập (ví dụ: tính điểm, lưu kết quả)
-        const score = calculateScore(exercise.questions, answers); // Giả sử bạn có hàm calculateScore
+        // Tạo bản ghi nộp bài
+        const submission = {
+            exerciseId: id,
+            studentId: req.userId, // ID của sinh viên (giả sử thông qua middleware xác thực người dùng)
+            file: file.path, // Đường dẫn đến tệp đã tải lên
+            submissionDate: Date.now()
+        };
 
-        exercise.submissions.push({ userId, answers, score });
-        await exercise.save();
+        // Lưu thông tin nộp bài vào cơ sở dữ liệu
+        const newSubmission = new Submission(submission);
+        await newSubmission.save();
 
-        res.status(200).json({ message: 'Exercise submitted successfully!', score });
+        // Trả về phản hồi thành công
+        res.status(200).json({ message: 'File submitted successfully!', submission: newSubmission });
     } catch (error) {
         res.status(500).json({ message: 'Failed to submit exercise', error: error.message });
     }
 };
 
-// Giả sử bạn có hàm calculateScore để tính điểm cho bài tập
-function calculateScore(questions, answers) {
-    let score = 0;
-    questions.forEach((question, index) => {
-        if (answers[index] === question.correctAnswer) {
-            score += 1; // Cộng điểm cho mỗi câu trả lời đúng
+exports.getStudentSubmissions = async (req, res) => {
+    const { id } = req.params; // ID của bài tập
+    const studentId = req.userId; // ID sinh viên từ token (middleware xác thực)
+
+    try {
+        // Tìm bài nộp của sinh viên cho bài tập cụ thể
+        const submission = await Submission.findOne({
+            exerciseId: id,
+            studentId: studentId
+        });
+
+        if (!submission) {
+            return res.status(404).json({ message: 'No submission found for this exercise by the student.' });
         }
-    });
-    return score;
-}
+
+        // Trả về thông tin bài nộp
+        res.status(200).json({
+            submissionId: submission._id,
+            userId: submission.studentId,
+            file: submission.file,
+            submittedAt: submission.submissionDate
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch submission', error: error.message });
+    }
+};
+
+exports.gradeSubmission = async (req, res) => {
+    const { id, submissionId } = req.params; // ID bài tập và bài nộp
+    const { grade } = req.body; // Điểm chấm từ body
+
+    // Kiểm tra dữ liệu đầu vào
+    if (typeof grade !== 'number' || grade < 0 || grade > 10) {
+        return res.status(400).json({ message: 'Invalid grade. Grade must be a number between 0 and 10.' });
+    }
+
+    try {
+        // Tìm bài nộp theo ID bài tập và bài nộp
+        const submission = await Submission.findOne({
+            _id: submissionId,
+            exerciseId: id
+        });
+
+        if (!submission) {
+            return res.status(404).json({ message: 'Submission not found.' });
+        }
+
+        // Cập nhật điểm cho bài nộp
+        submission.grade = grade;
+        await submission.save();
+
+        // Trả về thông báo thành công
+        res.status(200).json({
+            message: 'Submission graded successfully!',
+            submission: {
+                submissionId: submission._id,
+                studentId: submission.studentId,
+                grade: submission.grade,
+                gradedAt: submission.updatedAt
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to grade submission', error: error.message });
+    }
+};
+
+exports.getSubmissionGrade = async (req, res) => {
+    const { id, submissionId } = req.params; // ID bài tập và bài nộp
+
+    try {
+        // Tìm bài nộp theo ID bài tập và bài nộp
+        const submission = await Submission.findOne({
+            _id: submissionId,
+            exerciseId: id
+        });
+
+        if (!submission) {
+            return res.status(404).json({ message: 'Submission not found.' });
+        }
+
+        // Kiểm tra nếu bài nộp chưa được chấm điểm
+        if (submission.grade === undefined) {
+            return res.status(200).json({ message: 'This submission has not been graded yet.' });
+        }
+
+        // Trả về điểm và nhận xét
+        res.status(200).json({
+            grade: submission.grade,
+            feedback: submission.feedback || 'No feedback provided.'
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch submission grade', error: error.message });
+    }
+};

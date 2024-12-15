@@ -2,6 +2,8 @@ const Examination = require('../models/Examination');
 const QuestionBank = require('../models/QuestionBank');
 const Registration = require('../models/Registration');
 const Answer = require('../models/Answer');
+const Question = require('../models/Question');
+const { ObjectId } = require('mongoose').Types;
 
 // Tạo kỳ thi
 exports.createExam = async (req, res) => {
@@ -150,7 +152,7 @@ exports.getExamById = async (req, res) => {
 
     try {
         // Tìm kỳ thi theo ID
-        const exam = await Exam.findById(id).populate('questions'); // Populate câu hỏi nếu câu hỏi là liên kết
+        const exam = await Examination.findById(id).populate('questions'); // Populate câu hỏi nếu câu hỏi là liên kết
 
         // Nếu không tìm thấy kỳ thi
         if (!exam) {
@@ -181,79 +183,102 @@ exports.getExamById = async (req, res) => {
 
 // Cập nhật kỳ thi
 exports.updateExam = async (req, res) => {
-    const { id } = req.params;
-    const { title, description, startDate, endDate, duration, questions, visibility } = req.body;
+    const { examId } = req.params; // Lấy ID của kỳ thi từ params
+    const { 
+        title, 
+        description, 
+        questionBank, 
+        questions, 
+        duration, 
+        totalMarks, 
+        passMarks, 
+        startDate, 
+        endDate, 
+        tags, 
+        visibility 
+    } = req.body;
 
     try {
-        // Kiểm tra xem kỳ thi có tồn tại hay không
-        const exam = await Exam.findById(id);
+        // Kiểm tra examId hợp lệ
+        if (!ObjectId.isValid(examId)) {
+            return res.status(400).json({ message: 'Invalid exam ID.' });
+        }
 
-        if (!exam) {
+        // Kiểm tra questionBank hợp lệ
+        if (!ObjectId.isValid(questionBank)) {
+            return res.status(400).json({ message: 'Invalid question bank ID.' });
+        }
+
+        // Chuyển đổi questionBank sang ObjectId
+        const questionBankId = new ObjectId(questionBank);
+
+        // Chuyển đổi các câu hỏi (questions) thành cấu trúc hợp lệ
+        const questionIds = questions.map(q => {
+            if (!ObjectId.isValid(q.questionId)) {
+                throw new Error(`Invalid question ID: ${q.questionId}`);
+            }
+            return {
+                questionId: new ObjectId(q.questionId),
+                marks: q.marks
+            };
+        });
+
+        // Kiểm tra nếu ngân hàng câu hỏi không tồn tại
+        const bankExists = await QuestionBank.findById(questionBankId);
+        if (!bankExists) {
+            return res.status(404).json({ message: 'Question bank not found.' });
+        }
+
+        // Cập nhật kỳ thi
+        const updatedExam = await Examination.findByIdAndUpdate(
+            examId,
+            {
+                title,
+                description,
+                questionBank: questionBankId,
+                questions: questionIds, // Lưu cấu trúc questions đã được chuyển đổi
+                duration,
+                totalMarks,
+                passMarks,
+                startDate: new Date(startDate),
+                endDate: new Date(endDate),
+                tags,
+                visibility
+            },
+            { new: true } // Trả về document đã cập nhật
+        );
+
+        if (!updatedExam) {
             return res.status(404).json({ message: 'Exam not found.' });
         }
 
-        // Cập nhật thông tin kỳ thi
-        exam.title = title || exam.title;
-        exam.description = description || exam.description;
-        exam.startDate = startDate || exam.startDate;
-        exam.endDate = endDate || exam.endDate;
-        exam.duration = duration || exam.duration;
-        exam.questions = questions || exam.questions; // Cập nhật danh sách câu hỏi (nếu có)
-        exam.visibility = visibility || exam.visibility; // Cập nhật trạng thái kỳ thi (public/private)
-
-        // Kiểm tra logic thời gian (optional, tuỳ vào yêu cầu)
-        const now = new Date();
-        if (new Date(exam.startDate) < now) {
-            return res.status(400).json({ message: 'Start date cannot be in the past.' });
-        }
-        if (new Date(exam.startDate) >= new Date(exam.endDate)) {
-            return res.status(400).json({ message: 'End date must be after start date.' });
-        }
-
-        // Lưu các thay đổi
-        await exam.save();
-
-        // Trả về kết quả
         res.status(200).json({
             message: 'Exam updated successfully!',
-            exam: {
-                id: exam._id,
-                title: exam.title,
-                description: exam.description,
-                startDate: exam.startDate,
-                endDate: exam.endDate,
-                duration: exam.duration,
-                questions: exam.questions,
-                visibility: exam.visibility,
-                createdAt: exam.createdAt,
-                updatedAt: exam.updatedAt
-            },
+            exam: updatedExam
         });
-
     } catch (error) {
-        // Xử lý lỗi
-        res.status(500).json({ message: 'Failed to update exam', error: error.message });
+        res.status(500).json({
+            message: 'Failed to update exam',
+            error: error.message
+        });
     }
 };
+
+
 
 // Xóa kỳ thi
 exports.deleteExam = async (req, res) => {
     const { id } = req.params;
 
     try {
-        // Kiểm tra quyền nếu cần (ví dụ: chỉ người tạo hoặc admin mới có quyền xóa kỳ thi)
-        const exam = await Exam.findById(id);
+        // Tìm kỳ thi theo id
+        const exam = await Examination.findById(id);
         if (!exam) {
             return res.status(404).json({ message: 'Exam not found.' });
         }
 
-        // Kiểm tra nếu người dùng có quyền xóa (giả sử req.userId là ID của người dùng hiện tại)
-        if (exam.createdBy.toString() !== req.userId && req.userRole !== 'admin') {
-            return res.status(403).json({ message: 'You are not authorized to delete this exam.' });
-        }
-
         // Xóa kỳ thi
-        await Exam.findByIdAndDelete(id);
+        await Examination.findByIdAndDelete(id);
 
         res.status(200).json({ message: 'Exam deleted successfully!' });
     } catch (error) {
@@ -268,7 +293,7 @@ exports.registerForExam = async (req, res) => {
 
     try {
         // Kiểm tra xem kỳ thi có tồn tại không
-        const exam = await Exam.findById(examId);
+        const exam = await Examination.findById(examId);
         if (!exam) {
             return res.status(404).json({ message: 'Exam not found.' });
         }
@@ -315,7 +340,9 @@ exports.startExam = async (req, res) => {
 
     try {
         // Kiểm tra xem kỳ thi có tồn tại không
-        const exam = await Exam.findById(examId);
+        const exam = await Examination.findById(examId)
+            .populate('questions.questionId', 'questionText options marks');  // Exclude correctAnswer and explanation, include options
+
         if (!exam) {
             return res.status(404).json({ message: 'Exam not found.' });
         }
@@ -341,7 +368,7 @@ exports.startExam = async (req, res) => {
         registration.status = 'started';  // Trạng thái đăng ký được thay đổi thành 'started'
         await registration.save();
 
-        // Gửi thông tin kỳ thi cho người dùng
+        // Gửi thông tin kỳ thi và câu hỏi cho người dùng
         res.status(200).json({
             message: 'Exam has started!',
             exam: {
@@ -351,67 +378,16 @@ exports.startExam = async (req, res) => {
                 startDate: exam.startDate,
                 endDate: exam.endDate,
                 duration: exam.duration,
-                questions: exam.questions,  // Cung cấp danh sách câu hỏi nếu cần
+                questions: exam.questions.map(q => ({
+                    questionId: q.questionId,  // Only include questionId
+                    marks: q.marks  // Include marks
+                    // options will be included within questionId
+                })),
             }
         });
 
     } catch (error) {
         res.status(500).json({ message: 'Failed to start the exam', error: error.message });
-    }
-};
-
-// Kết thúc kỳ thi
-exports.endExam = async (req, res) => {
-    const { examId } = req.params; // Lấy ID kỳ thi từ URL
-    const userId = req.userId; // Lấy userId từ middleware xác thực (JWT hoặc session)
-
-    try {
-        // Kiểm tra xem kỳ thi có tồn tại không
-        const exam = await Exam.findById(examId);
-        if (!exam) {
-            return res.status(404).json({ message: 'Exam not found.' });
-        }
-
-        // Kiểm tra xem người dùng có tham gia kỳ thi không
-        const registration = await Registration.findOne({ user: userId, exam: examId });
-        if (!registration) {
-            return res.status(400).json({ message: 'You are not registered for this exam.' });
-        }
-
-        // Kiểm tra thời gian kết thúc kỳ thi
-        const now = new Date();
-        if (new Date(exam.endDate) > now && registration.status !== 'completed') {
-            return res.status(400).json({ message: 'The exam time has not yet ended or you have not completed the exam.' });
-        }
-
-        // Nếu người dùng đã hoàn thành bài thi
-        if (registration.status !== 'completed') {
-            // Cập nhật trạng thái người dùng là 'completed'
-            registration.status = 'completed';
-            await registration.save();
-        }
-
-        // Cập nhật trạng thái kỳ thi là 'ended'
-        exam.status = 'ended';
-        await exam.save();
-
-        // Tính điểm (tuỳ vào cách tính điểm của bạn)
-        // Giả sử có một hàm calculateResults để tính điểm người dùng
-        const score = await calculateResults(userId, examId); // Tính điểm cho người dùng
-
-        // Gửi kết quả cho người dùng
-        res.status(200).json({
-            message: 'Exam ended successfully!',
-            result: {
-                examId: exam._id,
-                score: score,
-                totalMarks: exam.totalMarks,
-                status: 'completed',
-                completedAt: now
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to end the exam', error: error.message });
     }
 };
 
@@ -423,7 +399,7 @@ exports.submitExam = async (req, res) => {
 
     try {
         // Kiểm tra xem kỳ thi có tồn tại không
-        const exam = await Exam.findById(examId);
+        const exam = await Examination.findById(examId);
         if (!exam) {
             return res.status(404).json({ message: 'Exam not found.' });
         }
@@ -434,15 +410,25 @@ exports.submitExam = async (req, res) => {
             return res.status(400).json({ message: 'You are not registered for this exam.' });
         }
 
-        // Lưu câu trả lời của người dùng
+        // Kiểm tra xem người dùng đã nộp bài thi chưa
+        if (registration.status === 'completed') {
+            return res.status(400).json({ message: 'You have already submitted the exam.' });
+        }
+
+        // Lưu câu trả lời của người dùng và kiểm tra đáp án đúng/sai
         const answerPromises = answers.map(async (answer) => {
-            const { questionId, answerText, isCorrect } = answer;
+            const { questionId, answerText } = answer;
+
+            // Lấy câu hỏi để kiểm tra đáp án
+            const question = await Question.findById(questionId);
+            const isCorrect = question.correctAnswer === answerText;
+
             const newAnswer = new Answer({
                 userId,
                 examId,
                 questionId,
                 answer: answerText,
-                isCorrect,
+                isCorrect,  // Lưu giá trị isCorrect
             });
             await newAnswer.save();
         });
@@ -450,15 +436,22 @@ exports.submitExam = async (req, res) => {
         // Chờ tất cả câu trả lời được lưu
         await Promise.all(answerPromises);
 
-        // Cập nhật trạng thái kỳ thi là đã nộp bài
+        // Tính điểm sau khi nộp bài
+        const score = await calculateResults(userId, examId);
+
+        // Cập nhật điểm cho kỳ thi
+        registration.score = score;
         registration.status = 'completed';
         await registration.save();
 
-        res.status(200).json({ message: 'Exam submitted successfully.' });
+        res.status(200).json({ message: 'Exam submitted successfully.', score });
     } catch (error) {
         res.status(500).json({ message: 'Failed to submit exam', error: error.message });
     }
 };
+
+
+
 
 // Lấy kết quả thi của người dùng
 exports.getExamResults = async (req, res) => {
@@ -467,7 +460,7 @@ exports.getExamResults = async (req, res) => {
 
     try {
         // Kiểm tra xem kỳ thi có tồn tại không
-        const exam = await Exam.findById(examId);
+        const exam = await Examination.findById(examId);
         if (!exam) {
             return res.status(404).json({ message: 'Exam not found.' });
         }
@@ -486,16 +479,24 @@ exports.getExamResults = async (req, res) => {
         // Lấy câu trả lời của người dùng từ bảng Answer
         const answers = await Answer.find({ userId, examId });
 
-        // Tính điểm cho kỳ thi của người dùng
-        const score = answers.filter(answer => answer.isCorrect).length;
-        
+        // Tính điểm cho kỳ thi của người dùng dựa vào marks của từng câu hỏi
+        let score = 0;
+        for (let answer of answers) {
+            const question = await Question.findById(answer.questionId);
+            if (question && question.correctAnswer === answer.answer) {
+                // Cộng điểm cho mỗi câu trả lời đúng
+                const questionDetails = exam.questions.find(q => q.questionId.toString() === question._id.toString());
+                score += questionDetails.marks;  // Cộng điểm của câu hỏi
+            }
+        }
+
         // Trả về kết quả thi
         res.status(200).json({
             message: 'Exam results retrieved successfully.',
             result: {
                 examId: exam._id,
                 userId: userId,
-                score: score,  // Số câu trả lời đúng
+                score: score,  // Điểm thi của người dùng
                 totalMarks: exam.totalMarks,
                 status: registration.status,
                 answers: answers, // Các câu trả lời của người dùng
@@ -507,13 +508,13 @@ exports.getExamResults = async (req, res) => {
     }
 };
 
-// Thống kê kỳ thi
+
 exports.getExamStatistics = async (req, res) => {
     const { examId } = req.params;  // Lấy ID kỳ thi từ URL
 
     try {
         // Kiểm tra xem kỳ thi có tồn tại không
-        const exam = await Exam.findById(examId);
+        const exam = await Examination.findById(examId);
         if (!exam) {
             return res.status(404).json({ message: 'Exam not found.' });
         }
@@ -528,11 +529,17 @@ exports.getExamStatistics = async (req, res) => {
         // Tỷ lệ hoàn thành: Số người hoàn thành / Số người đăng ký
         const completionRate = (completedRegistrations.length / registrations.length) * 100;
 
-        // Lấy câu trả lời của tất cả người dùng đã hoàn thành kỳ thi
-        const answers = await Answer.find({ examId, userId: { $in: completedUserIds } });
+        // Tính điểm cho từng người và tổng điểm
+        const totalScores = {};
+        for (let userId of completedUserIds) {
+            const score = await calculateResults(userId, examId);
+            totalScores[userId] = score;
+        }
 
-        // Tính số điểm trung bình
-        const totalScore = answers.reduce((acc, answer) => acc + (answer.isCorrect ? 1 : 0), 0);
+        console.log("Total Scores: ", totalScores);  // Log điểm của từng người
+
+        // Tính điểm trung bình
+        const totalScore = Object.values(totalScores).reduce((acc, score) => acc + score, 0);
         const averageScore = totalScore / completedRegistrations.length;
 
         // Số người tham gia
@@ -553,21 +560,94 @@ exports.getExamStatistics = async (req, res) => {
     }
 };
 
-
-// Giả sử có hàm calculateResults để tính điểm người dùng
 async function calculateResults(userId, examId) {
-    // Tính toán kết quả dựa trên câu trả lời của người dùng
-    // Đây chỉ là ví dụ đơn giản, bạn có thể tính điểm theo cách khác tùy vào cấu trúc kỳ thi
-    const answers = await Answer.find({ user: userId, exam: examId });
+    // Lấy tất cả câu trả lời của học sinh
+    const answers = await Answer.find({ userId, examId });
+
+    // Lấy thông tin kỳ thi và các câu hỏi trong kỳ thi
+    const exam = await Examination.findById(examId).populate('questions.questionId'); // Populate để lấy câu hỏi
+
     let score = 0;
-    
+
+    // Duyệt qua tất cả câu trả lời của học sinh
     answers.forEach(answer => {
-        if (answer.isCorrect) { // Giả sử isCorrect là trường xác định câu trả lời đúng
-            score += 1; // Tính điểm cho câu trả lời đúng
+        // Tìm câu hỏi tương ứng với câu trả lời
+        const question = exam.questions.find(q => q.questionId._id.toString() === answer.questionId.toString());
+
+        // Nếu câu hỏi tồn tại và câu trả lời đúng
+        if (question) {
+            // So sánh câu trả lời với câu trả lời đúng trong câu hỏi
+            if (question.questionId.correctAnswer === answer.answer) {
+                score += question.marks; // Cộng điểm theo marks của câu hỏi
+            }
         }
     });
 
     return score;
 }
+
+exports.addQuestionsToExam = async (req, res) => {
+    try {
+        const { examId, questions } = req.body;  // Expecting an array of question objects with questionId and marks
+
+        // Check if the exam exists
+        const exam = await Examination.findById(examId);
+        if (!exam) {
+            return res.status(404).json({ message: 'Exam not found.' });
+        }
+
+        // Loop through each question and validate the data
+        for (let question of questions) {
+            if (!question.questionId || !question.marks) {
+                return res.status(400).json({ message: 'Both questionId and marks are required for each question.' });
+            }
+
+            // Check if the questionId exists in the Question collection
+            const questionExists = await Question.findById(question.questionId);
+            if (!questionExists) {
+                return res.status(400).json({ message: `Question with ID ${question.questionId} does not exist.` });
+            }
+
+            // Check if the question is already in the exam
+            if (!exam.questions.some(q => q.questionId.toString() === question.questionId.toString())) {
+                exam.questions.push({
+                    questionId: question.questionId,
+                    marks: question.marks
+                });
+            }
+        }
+
+        // Save the updated exam
+        await exam.save();
+
+        res.status(200).json({ message: 'Exam updated successfully!', exam });
+
+    } catch (error) {
+        res.status(500).json({ message: 'An error occurred.', error: error.message });
+    }
+};
+
+exports.getQuestionsFromExam = async (req, res) => {
+    try {
+        const { examId } = req.params;  // Get examId from the URL parameter
+
+        // Check if the exam exists
+        const exam = await Examination.findById(examId).populate('questions.questionId');
+        if (!exam) {
+            return res.status(404).json({ message: 'Exam not found.' });
+        }
+
+        // Return the questions from the exam
+        res.status(200).json({
+            message: 'Questions fetched successfully.',
+            questions: exam.questions.map(q => ({
+                questionId: q.questionId,
+                marks: q.marks
+            }))
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'An error occurred.', error: error.message });
+    }
+};
 
 

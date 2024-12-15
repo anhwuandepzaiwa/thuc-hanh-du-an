@@ -12,33 +12,16 @@ const exerciseSchema = new Schema({
         type: String,
         trim: true
     },
-    subject: {  // Thêm môn học
-        type: String,
+    dueDate: {  // Ngày hết hạn
+        type: Date,
         required: true
     },
-    difficulty: {  // Thêm mức độ khó
-        type: String,
-        enum: ['easy', 'medium', 'hard'],
-        required: true
-    },
-    questionBank: {
-        type: Schema.Types.ObjectId,
-        ref: 'QuestionBank',
-        required: true
-    },
-    questions: [{  // Thêm câu hỏi vào bài tập
-        type: Schema.Types.ObjectId,
-        ref: 'Question',
-        required: true
-    }],
-    duration: {  // Thêm thời gian hoàn thành
-        type: Number,
-        required: true
-    },
-    totalMarks: {  // Tổng điểm bài tập
-        type: Number,
-        required: true
-    },
+    fileTypeAllowed: [  // Các loại tệp được phép nộp
+        {
+            type: String,
+            required: true
+        }
+    ],
     createdBy: {
         type: Schema.Types.ObjectId,
         ref: 'User',
@@ -49,10 +32,6 @@ const exerciseSchema = new Schema({
         enum: ['public', 'private'],
         default: 'private'
     },
-    tags: [{
-        type: String,
-        trim: true
-    }],
     createdAt: {
         type: Date,
         default: Date.now

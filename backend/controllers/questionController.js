@@ -128,6 +128,11 @@ exports.importQuestions = [
     upload.single('file'), // Chỉ chấp nhận một tệp
     async (req, res) => {
         try {
+            // Check if the file was uploaded successfully
+            if (!req.file) {
+                return res.status(400).json({ message: 'No file uploaded' });
+            }
+
             const filePath = req.file.path;
             const entityId = req.params.id; // Lấy ID từ URL
 
@@ -202,7 +207,6 @@ exports.importQuestions = [
                         res.status(404).json({ message: `ID ${entityId} không được tìm thấy.` });
                     }
                 } catch (dbError) {
-
                     res.status(500).json({ message: 'Lỗi nhập dữ liệu vào database', error: dbError.message });
                 }
             } else {
@@ -213,12 +217,16 @@ exports.importQuestions = [
             res.status(500).json({ message: 'Lỗi nhập câu hỏi', error: error.message });
         } finally {
             // Xóa file sau khi xử lý xong
-            fs.unlink(req.file.path, (err) => {
-                if (err) console.error('Lỗi xóa file:', err);
-            });
+            if (req.file && req.file.path) {
+                fs.unlink(req.file.path, (err) => {
+                    if (err) console.error('Lỗi xóa file:', err);
+                });
+            }
         }
     }
 ];
+
+
 
 
 // Export Questions (Xuất câu hỏi)
