@@ -1,6 +1,7 @@
 const Role = require('../models/Role');
 const Permission = require('../models/Permission');
-// Lấy tất cả các vai trò
+
+// Lấy tất cả các vai trò(chỉ có superadmin mới có quyền)
 exports.getAllRoles = async (req, res) => {
     try {
         const roles = await Role.find().populate('permissions', 'name description');
@@ -10,7 +11,7 @@ exports.getAllRoles = async (req, res) => {
     }
 };
 
-// Tạo Role
+// Tạo Role(chỉ có superadmin mới có quyền)
 exports.createRole = async (req, res) => {
     const { name, permissions } = req.body;
 
@@ -36,7 +37,7 @@ exports.createRole = async (req, res) => {
     }
 };
 
-// Cập nhật vai trò
+// Cập nhật vai trò(chỉ có superadmin mới có quyền)
 exports.updateRole = async (req, res) => {
     const { name, permissions } = req.body;
 
@@ -74,7 +75,7 @@ exports.updateRole = async (req, res) => {
     }
 };
 
-// Xóa vai trò
+// Xóa vai trò(chỉ có superadmin mới có quyền)
 exports.deleteRole = async (req, res) => {
     try {
         const role = await Role.findById(req.params.id);
@@ -90,7 +91,7 @@ exports.deleteRole = async (req, res) => {
     }
 };
 
-// Lấy quyền của một vai trò
+// Lấy quyền của một vai trò(chỉ có superadmin mới có quyền)
 exports.getRolePermissions = async (req, res) => {
     try {
         const role = await Role.findById(req.params.id).populate('permissions', 'name description');
@@ -105,7 +106,7 @@ exports.getRolePermissions = async (req, res) => {
     }
 };
 
-// Gán quyền cho vai trò
+// Gán quyền cho vai trò(chỉ có superadmin mới có quyền)
 exports.assignPermissionsToRole = async (req, res) => {
     const { permissions } = req.body;
 
